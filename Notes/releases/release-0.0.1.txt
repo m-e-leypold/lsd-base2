@@ -1,0 +1,11 @@
+* Release 0.0.1 of LSD-Base2
+
+  internal ID: 3a2e118f58ebf3366586fa3c4f2f727327151203
+  time       : 2015-09-06T19:15
+
+- First public release
+- New reusable shell libraries 
+  - mypath.shlib (sets MYNAME and MYPATH)
+  - lsd-base.shlib (temporary files, info + error messages)
+- dot-script: live installation infrastructure
+- mklib: infra structure for reusable and modular makefiles

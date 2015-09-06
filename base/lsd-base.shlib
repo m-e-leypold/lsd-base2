@@ -1,0 +1,130 @@
+#                                        -*- mode: shell-script -*-
+#
+# lsd-base2
+#
+# Copyright (C) 2006-2007 M E Leypold (Software-Dienstleistungen und Beratung)
+# Copyright (C) 2007-2015 M E Leypold
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+WARNINGS=false
+ERRORS=false
+
+if test "$#" -gt 0 || test -z "$MYNAME"; then
+    . mypath.shlib "$@"
+fi
+	
+if test -z "$MYNAME"; then
+    APPNAME="_"
+else
+    APPNAME="$(basename $MYNAME)"
+fi
+
+
+panic(){
+       echo >&2 "$APPNAME: $*"
+       exit 255;
+       
+       # NOTE: We use 255 as special value to indicate a panic for the
+       # following reasons:
+       #
+       #   - No collision with error exit values from tools (which are
+       #     being propagated to the invoking process if we use 'set
+       #     -e')
+       #
+       #   - Signal show up as 128 + signal number. Since the number
+       #     of signals is usually less than 127, there will be no
+       #     collision with exit values that correspond to signals.
+       #
+
+       # If panic events have a unique (or reasonably unique) exit
+       # value, we can propagate panic events from sub processes w/o
+       # printing additional error messages which would be annoying
+       # and inappropriate in some situations. This is what
+       # propagate_or_panic() is for: Convert a already logged panic
+       # in a subprocess into a silent exit or panic if the last exit
+       # code is not a panic.
+}
+
+propagate_or_panic(){
+    if test "$?" -eq 255; then
+	infomsg "$*"
+	exit 255
+    else
+	panic "$*"
+    fi
+
+    # Note: Typical usage:
+    #  
+    #  ( do_something; do_another_thing; ) \
+    #    || propagate_or_panic "Could not frobnicate initial records."
+}
+
+infomsg_verbose(){
+       echo >&2 "$APPNAME: $*"
+       WARNINGS=true
+}
+
+warning(){
+       echo >&2 "$APPNAME: $*"
+       WARNINGS=true
+}
+
+error(){
+       echo >&2 "$APPNAME: $*"
+       ERRORS=true
+}
+
+
+app_exit(){
+    if "$ERRORS"; then
+	panic "errors occurred during processing -- aborting."
+    fi
+    if test "$#" -gt 0; then 
+	echo "$1" >&2;
+    fi
+    exit 0;
+}
+
+set_silent(){
+    infomsg(){ :; }
+}
+
+unset_silent(){
+    infomsg(){ infomsg_verbose "$@"; }
+}
+
+if test -n "$LSDTOOLS_SILENT" && "$LSDTOOLS_SILENT"; then
+   set_silent;
+else
+   unset_silent;
+fi
+
+
+# -------------------------------------------------
+
+
+new_tempfile(){
+    eval "$1"'="$(mktemp -t "$APPNAME.XXXXXXXX")"'
+    TEMPFILES="$TEMPFILES $1"
+}
+
+cleanup_tempfiles(){
+    set -x
+    for VAR in $TEMPFILES; do
+	eval 'rm -f "$'"$VAR"'"'
+    done
+}
+
+trap 'cleanup_tempfiles' EXIT
